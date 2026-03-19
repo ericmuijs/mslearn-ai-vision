@@ -118,7 +118,7 @@ The initial application files you'll need to develop the translation application
     pip install -r requirements.txt
     ```
 
-### Write code to connect to your project and get a chat client for your model
+### Write code to get an OpenAI chat client for your model
 
 > **Tip**: As you add code, be sure to maintain the correct indentation.
 
