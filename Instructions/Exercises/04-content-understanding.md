@@ -108,9 +108,9 @@ The initial application files you'll need to develop the translation application
     - `requirements.txt` - A file listing the package dependencies.
     - `images` - A folder containing images for analysis.
 
-1. In the **Explorer** pane, in the **python** folder, select the **.env** file to open it. Then update the configuration values to include the endpoint for your Foundry resource, and the model deployment name for your video-generation model.
+1. In the **Explorer** pane, in the **python** folder, select the **.env** file to open it. Then update the endpoint value to match the endpoint for your Foundry resource.
 
-    > **Important**:Be sure to add the `https://{YOUR-RESOURCE-NAME}.services.ai.azure.com` Fundry resource endpoint, <u>not</u> the project endpoint or Azure OpenAI endpoint!
+    > **Important**:Be sure to add the `https://{YOUR-RESOURCE-NAME}.services.ai.azure.com` Foundry resource endpoint, <u>not</u> the project endpoint or Azure OpenAI endpoint!
 
     Save the modified configuration file.
 
