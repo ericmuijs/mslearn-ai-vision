@@ -100,10 +100,23 @@ Now that you have a Foundry project, you can deploy the AI models needed for con
 
 1. Save the changes to the schema.
 1. Select **Run analysis** to run the analyzer on the image, and review the fields that are generated; which should include an accurate description and a collection of relevant tags for the image.
+1. When you're satisfied that the analyzer has returned accurate values for the fields, use the **Build analyzer** button to publish an analyzer with a unique name and suitable description.
+
+    >**Tip**: You'll need the name later to identify your analyzer in application code.
+
+1. When your analyzer has been built, jump to the analyzer list and verify it's listed there.
+1. Select your analyzer in the list to open it, and then view the **Code Example** tab to see the code necessary to use your analyzer.
+1. Review the Python code example, noting in the **main** function the **endpoint** for your Content Understanding resource; which should look similar to this:
+
+    ```
+   https://{your_foundry_resource}.services.ai.azure.com/
+    ```
+
+1. Under the code example, note that your **resource key** is available. You can use this in a client application to authenticate a connection to the endpoint.
 
 ## Create an image analyzer application
 
-Now that you've explored the playground, let's build a Python application that programmatically analyzes images using the Content Understanding analyzers.
+Now that you've created an analyzer, let's build a Python application that uses it to analyzes images.
 
 ### Get application files from GitHub
 
@@ -128,11 +141,11 @@ The initial application files you'll need to develop the translation application
 1. In the VS Code Explorer pane, review the files in the folder:
 
     - `.env` - A configuration file for application settings.
-    - `image-app.py` - The Python code file for the image analyzer application.
+    - `analyze-image.py` - The Python code file for the image analyzer application.
     - `requirements.txt` - A file listing the package dependencies.
     - `images` - A folder containing images for analysis.
 
-1. In the **Explorer** pane, in the **python** folder, select the **.env** file to open it. Then update the endpoint value to match the endpoint for your Foundry resource.
+1. In the **Explorer** pane, in the **python** folder, select the **.env** file to open it. Then update it with the  **endpoint** value for your resource endpoint (copied from the code example in Content Understanding Studio), your **key** (copied from Content Understanding Studio), and the name of your analyzer.
 
     > **Important**:Be sure to add the `https://{YOUR-RESOURCE-NAME}.services.ai.azure.com` Foundry resource endpoint, <u>not</u> the project endpoint or Azure OpenAI endpoint!
 
@@ -153,100 +166,77 @@ The initial application files you'll need to develop the translation application
 
 > **Tip**: As you add code, be sure to maintain the correct indentation.
 
-1. In VS Code, open the `image-app.py` file.
+1. In VS Code, open the `analyze-image.py` file.
 
 1. Find the comment **Add references** and add the following code for the necessary imports:
 
     ```python
    # Add references
-   import requests
-   import time
+   from azure.ai.contentunderstanding import ContentUnderstandingClient
+   from azure.ai.contentunderstanding.models import AnalysisInput, AnalysisResult
+   from azure.core.credentials import AzureKeyCredential
+   from azure.core.exceptions import AzureError
    from azure.identity import DefaultAzureCredential
     ```
 
-1. Find the comment **Get an access token for the Azure Cognitive Services resource** and add the following code:
+1. In the **main** function, note that code to get the configuration values from your environment file has been provided.
+1. Find the comment **Set up Content Understanding client** and add the following code:
 
     ```python
-   # Get an access token for the Azure Cognitive Services resource
-   credential = DefaultAzureCredential()
-   token = credential.get_token("https://cognitiveservices.azure.com/.default")
-   analyzer_url = f"{endpoint}/contentunderstanding/analyzers/prebuilt-imageSearch:analyze?api-version=2025-11-01"
-   headers = {
-       "Authorization": f"Bearer {token.token}",
-       "Content-Type": "application/json"
-   }
+   # Set up Content Understanding client
+   credential = AzureKeyCredential(key) if key else DefaultAzureCredential()
+   client = ContentUnderstandingClient(
+    endpoint=endpoint,
+    credential=credential,
+    api_version=api_version)
     ```
 
-1. Find the comment **Send the image to the analyzer and get the initial response** and add the following code:
+1. Note that code for the user to input a file number or quit the program has been provided.
+1. Find the comment **Analyze the file** and add the following code:
 
     ```python
-   # Send the image to the analyzer and get the initial response
-   payload = {
-       "inputs": [
-           {"url": image_url}
-       ]
-   }
-   response = requests.post(analyzer_url, headers=headers, json=payload)
-   print(f"Status Code: {response.status_code}")
-   result = response.json()
+   # Analyze the file
+   try:
+        poller = client.begin_analyze(
+            analyzer_id=analyzer_id,
+            inputs=[AnalysisInput(data=file_bytes)],
+        )
+        result: AnalysisResult = poller.result()
+   except AzureError as err:
+        print(f"[Azure Error]: {err.message}")
+        sys.exit(1)
+   except Exception as ex:
+        print(f"[Unexpected Error]: {ex}")
+        sys.exit(1)
+
+   for field in result.contents[0].fields:
+        if field == "Description":
+            print(f"{field}:\n{result.contents[0].fields[field].value_string}\n")
+        elif field == "Tags":
+            print(f"{field}:")
+            for tag in result.contents[0].fields[field].value_array:
+                print("  -", tag.value_string)
     ```
 
-1. Find the comment **Check the status of the analysis and poll if it's still running** and add the following code:
-
-    ```python
-   # Check the status of the analysis and poll if it's still running
-   if result.get("status") in ("Running", "NotStarted"):
-       request_id = result.get("id")
-       results_url = f"{endpoint}/contentunderstanding/analyzerResults/{request_id}?api-version=2025-11-01"
-       
-       # Poll until complete
-       while result.get("status") not in ("Succeeded", "Failed"):
-           time.sleep(2)
-           poll_response = requests.get(results_url, headers=headers)
-           result = poll_response.json()
-           print(f"Status: {result.get('status')}")
-    ```
+    This code submits the selected file data to your analyuzer, polls for th results, and then displays the *Description* and *Tags* values that are returned.
 
 1. Save the file (**Ctrl+S**).
 
 ### Sign into Azure and run the app
 
-1. In the VS Code terminal, sign into Azure:
+1. In the VS Code terminal, run the application:
 
     ```
-    az login
+    python analyze-image.py
     ```
 
-    **<font color="red">You must sign into Azure to authenticate with your Azure OpenAI resource.</font>**
+1. When prompted, enter a number that corresponds to one of these images:
 
-    > **Note**: In most scenarios, just using *az login* will be sufficient. However, if you have subscriptions in multiple tenants, you may need to specify the tenant by using the *--tenant* parameter.
+    |![A giraffe.](../../Labfiles/content-understanding/python/images/image1.jpg) | ![An elephant.](../../Labfiles/content-understanding/python/images/image2.jpg) | ![A lion.](../../Labfiles/content-understanding/python/images/image3.jpg)
+    |--|--|--|
+    | 1 | 2 | 3 |
 
-1. When prompted, follow the instructions to open the sign-in page in a new tab and enter the authentication code provided and your Azure credentials.
-
-1. After you have signed in, run the application:
-
-    ```
-    python image-app.py
-    ```
-
-1. Observe the output, which should be similar to the following:
-
-    ```output
-    ==================================================
-    Image Analysis Summaries:
-    ==================================================
-
-    Image 1 Summary:
-    The image shows a single apple placed on a light-colored fabric surface. The apple has a mix of red and greenish-yellow hues with some natural blemishes and a slightly irregular shape. The background is plain and out of focus, highlighting the apple as the main subject.
-
-    Image 2 Summary:
-    The image shows a single ripe banana placed on a white textured surface. The banana is mostly yellow with some brown spots and a greenish stem, indicating it is fresh and ready to eat.
-
-    Image 3 Summary:
-    The image is a 3D pie chart showing the distribution of hours in four categories. The largest segment is '60+ hours' at 37.8%, followed closely by '50-60 hours' at 36.6%. The '40-50 hours' category accounts for 18.9%, and the smallest segment is '1-39 hours' at 6.7%.
-    ```
-
-    Image analysis typically takes a few seconds. Notice that the descriptions include details about the objects in the images, including text, numbers, and other visual features. These detailed descriptions can help make the images more searchable and easier to organize in a content management system or search index.
+1. Observe the output, which should include a description of the selected image and a collection of appropriate tags.
 
 ## Summary
 
