@@ -148,7 +148,7 @@ The initial application files you'll need to develop the translation application
    credential = DefaultAzureCredential()
    token_provider = get_bearer_token_provider(credential, "https://ai.azure.com/.default")
    client = OpenAI(
-       base_url=endpoint,
+       base_url=openai_endpoint,
        api_key=token_provider()
    )
     ```
