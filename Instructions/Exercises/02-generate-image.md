@@ -51,7 +51,7 @@ Microsoft Foundry uses projects to organize models, resources, data, and other a
 
 You'll need a model that can generate images.
 
-1. On the project home page, in the **Start building** menu, select **Browse models** to view the Microsoft Foundry model catalog.
+1. On the project home page, in the **Start building** menu, select **Find models** to view the Microsoft Foundry model catalog.
 
 1. Search for and deploy the `FLUX.1-Kontext-pro` model using the default settings. Deployment may take a minute or so.
 
@@ -164,13 +164,18 @@ The initial application files you'll need to develop the translation application
    img = client.images.generate(
         model=model_deployment,
         prompt=input_text,
-        n=1,
-        size="1024x1024",
-   )
-   image_data = base64.b64decode(img.data[0].b64_json)
+        n=1
+    )
+
+   json_response = json.loads(result.model_dump_json())
+   image_data = json_response["data"][0].get("b64_json")
+   image_data_in_bytes = base64.b64decode(image_data)
     ```
 
-    > **Note**: The FLUX model returns the generated image as base64-encoded data in `b64_json`. The `url` field will be `None` for this model.
+    > **Note**: The FLUX model returns the generated image as base64-encoded data in `b64_json`.
+
+1. Note that the code in the remainder of the **main** function passes the image data and a filename to a provided function, which decodes and saves the generated image as a .png file.
+    > **Note**: The FLUX model returns the generated image as base64-encoded data in `b64_json`.
 
 1. Note that the code in the remainder of the **main** function passes the image data and a filename to a provided function, which decodes and saves the generated image as a .png file.
 
